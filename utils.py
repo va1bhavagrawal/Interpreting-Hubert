@@ -41,15 +41,16 @@ def generate_phoneme_ground_truth(phoneme_intervals, frame_size, hop_size, total
     print(f"{total_duration = }")
     print(f"{hop_size = }")
     frame_starts = np.arange(0, total_duration, hop_size)
-    print(f"{len(frame_starts) = }")
-    print(f"{frame_starts = }")
+    frame_starts = frame_starts[frame_starts <= total_duration - frame_size] 
+    # print(f"{len(frame_starts) = }")
+    # print(f"{frame_starts = }")
     frame_ends = frame_starts + frame_size
     ground_truth = []
 
     for start, end in zip(frame_starts, frame_ends):
         matched_phoneme = None
         for interval in phoneme_intervals:
-            if start < interval["xmax"] and end > interval["xmin"]:
+            if start < interval["xmax"] and end > interval["xmin"]: 
                 matched_phoneme = interval["text"]
                 break
         ground_truth.append(matched_phoneme if matched_phoneme else "")
