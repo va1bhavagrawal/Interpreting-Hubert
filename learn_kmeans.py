@@ -1,8 +1,10 @@
 import numpy as np
 import matplotlib.pyplot as plt
+import joblib 
 from sklearn.manifold import TSNE
 from collections import defaultdict
 import torch 
+from sklearn.cluster import KMeans
 
 import os
 import os.path as osp
@@ -12,8 +14,10 @@ import pickle
 from sklearn.metrics import confusion_matrix, ConfusionMatrixDisplay
 import copy 
 
-ROOT_DIR = "speakers_hubert_features"
+ROOT_DIR = "speakers_hubert_features_personalized"
 SPEAKERS = ["p376"] 
+N_CLUSTERS = 50 
+KMEANS_MODEL_PATH = "km_personal.bin" 
 
 
 # PHONEME_CATEGORIES = {
@@ -31,7 +35,7 @@ PHONEME_CATEGORIES = {
     "alveolar": ["T", "D", "S", "Z", "N", "L"], 
     "palatal": ["SH", "ZH", "CH", "JH", "Y"], 
     "velar": ["K", "G", "NG"], 
-    # "glottal": ["HH"], 
+    "glottal": ["HH", "AH", "R"], 
 }
 
 # Map phonemes to their categories
@@ -87,33 +91,14 @@ if __name__ == "__main__":
     # all_features_array = np.array(all_features)
     all_features_array = torch.stack(all_features, dim=0).cpu().numpy() 
 
-    # Apply t-SNE
-    print(f"making tsne...")
-    tsne = TSNE(n_components=2, random_state=42, perplexity=50)
-    reduced_features = tsne.fit_transform(all_features_array)
+    print(f"{all_features_array.shape = }")
+    # Learn a KMeans model with 50 clusters
+    print("Fitting KMeans model...")
+    kmeans = KMeans(n_clusters=N_CLUSTERS, random_state=42)
+    kmeans.fit(all_features_array)
 
-    # Plot the t-SNE visualization
-    plt.figure(figsize=(10, 8))
-    categories = list(PHONEME_CATEGORIES.keys())
-    category_to_color = {category: plt.cm.tab10(i / len(categories)) for i, category in enumerate(categories)}
+    # Save the KMeans model to disk
+    print(f"Saving KMeans model to {KMEANS_MODEL_PATH}...")
+    joblib.dump(kmeans, KMEANS_MODEL_PATH)
 
-    # for category in categories:
-    #     indices = [i for i, cat in enumerate(all_phoneme_categories) if cat == category]
-    #     plt.scatter(reduced_features[indices, 0], reduced_features[indices, 1],
-    #                 label=category, color=category_to_color[category], alpha=1.0) 
-
-    # Assume 'categories' is a list of unique categories
-    # Assign a unique color from a colormap for each category
-    category_to_color = {category: plt.cm.tab10(i / len(categories)) for i, category in enumerate(categories)}
-
-    for category in categories:
-        indices = [i for i, cat in enumerate(all_phoneme_categories) if cat == category]
-        plt.scatter(reduced_features[indices, 0], reduced_features[indices, 1],
-                    label=category, color=category_to_color[category], alpha=1.0)
-
-
-    plt.legend()
-    plt.title("t-SNE Visualization of Phoneme Categories")
-    plt.xlabel("t-SNE Dimension 1")
-    plt.ylabel("t-SNE Dimension 2")
-    plt.savefig("tsne.jpg") 
+    print("KMeans model saved successfully!")

@@ -28,7 +28,7 @@ if __name__ == "__main__":
     # clusters = get_hubert_clusters(audio_path) 
     # file_path = "./pratt3000/vctk-corpus/versions/1/VCTK-Corpus/VCTK-Corpus/aligned_corpuses/p376/p376_150.TextGrid"  # Replace with your file path
     # assert osp.exists(file_path)
-    wandb.login(key="6ab81b60046f7d7f6a7dca014a2fcaf4538ff14a") 
+    wandb.login() 
 
     for speaker in SPEAKERS: 
         assert osp.exists(CORPUS_DIR)  
