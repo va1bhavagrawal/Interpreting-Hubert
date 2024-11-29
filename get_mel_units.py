@@ -109,4 +109,4 @@ if __name__ == "__main__":
         speaker_data_path = osp.join("speakers_hubert_data", f"{speaker}_data.pkl") 
         os.makedirs(osp.dirname(speaker_data_path), exist_ok=True) 
         with open(speaker_data_path, "wb") as f: 
-            pickle.dump(all_data, f) 
+            pickle.dump(all_data, f)

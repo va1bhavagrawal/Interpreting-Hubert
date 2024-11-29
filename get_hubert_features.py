@@ -3,6 +3,7 @@ import torch
 from transformers import HubertModel
 import joblib  # For loading the k-means model 
 from utils import * 
+import copy 
 
 import os 
 import os.path as osp 
@@ -14,7 +15,7 @@ from tqdm import tqdm
 import pickle 
 
 # Step 1: Load the audio file
-def get_hubert_clusters(model, audio_path): 
+def get_hubert_features(model, audio_path): 
     waveform, sample_rate = torchaudio.load(audio_path)
 
     # Normalize the waveform
@@ -36,21 +37,13 @@ def get_hubert_clusters(model, audio_path):
         hidden_states = model(inputs.to(0)).last_hidden_state  # Extract HuBERT features
     # print(f"{hidden_states.shape = }")
 
-    # Step 4: Load k-means model (pre-trained)
-    kmeans_model_path = "km.bin"
-    kmeans_model = joblib.load(kmeans_model_path)
-
-    # Apply k-means clustering on the HuBERT features
-    cluster_units = kmeans_model.predict(hidden_states.squeeze(0).cpu().numpy()) 
-    # print(f"{cluster_units.shape = }")
-
-    # print("Clustered Units:", cluster_units) 
-    return cluster_units 
+    return hidden_states 
 
 
 CORPUS_DIR = "../pratt3000/vctk-corpus/versions/1/VCTK-Corpus/VCTK-Corpus/corpuses" 
 ALIGNED_CORPUS_DIR = CORPUS_DIR.replace("corpuses", "aligned_corpuses") 
-SPEAKERS = ["p345", "p334", "p300"]  
+# SPEAKERS = ["p376", "p345", "p334", "p300"]  
+SPEAKERS = ["p376"] 
 
 if __name__ == "__main__": 
     # audio_path = "150.wav" 
@@ -59,7 +52,14 @@ if __name__ == "__main__":
     # assert osp.exists(file_path)
     assert osp.exists(CORPUS_DIR)  
     assert osp.exists(ALIGNED_CORPUS_DIR) 
-    model = HubertModel.from_pretrained("facebook/hubert-base-ls960").to(0)  
+    # model = HubertModel.from_pretrained("facebook/hubert-base-ls960").to(0)  
+    model = HubertModel.from_pretrained("facebook/hubert-large-ls960-ft").to(0)  
+    state_dict = torch.load("p376_0.0001/009.pth") 
+    new_state_dict = copy.deepcopy(model.state_dict()) 
+    for k, v in new_state_dict.items(): 
+        assert "hubert." + k in state_dict, f"{k = }"  
+        new_state_dict[k] = state_dict["hubert." + k] 
+    model.load_state_dict(new_state_dict)  
 
     all_data = [] 
 
@@ -88,25 +88,26 @@ if __name__ == "__main__":
                 #     print(f"Frame {i}: {phoneme}")
                 # print(f"{phoneme_ground_truth = }") 
 
-                clusters = get_hubert_clusters(model, wav_path)  
+                features = get_hubert_features(model, wav_path).squeeze()    
+                assert abs(len(features) - len(phoneme_ground_truth)) <= 2, f"{features.shape = }, {len(phoneme_ground_truth) = }, {wav_path = }"  
                 # if len(phoneme_ground_truth) == len(clusters) + 1: 
                 #     phoneme_ground_truth = phoneme_ground_truth[:-1] 
-                min_length = len(phoneme_ground_truth) if len(phoneme_ground_truth) < len(clusters) else len(clusters) 
-                clusters = clusters[:min_length] 
+                min_length = len(phoneme_ground_truth) if len(phoneme_ground_truth) < len(features) else len(features) 
+                features = features[:min_length] 
                 phoneme_ground_truth = phoneme_ground_truth[:min_length] 
                 data = {
                     "wav_path": wav_path, 
                     "textgrid_path": textgrid_path, 
                     "speaker": speaker, 
-                    "clusters": clusters, 
+                    "features": features, 
                     "phoneme_ground_truth": phoneme_ground_truth 
                 }
                 all_data.append(data) 
-                assert len(clusters) == len(phoneme_ground_truth), f"{len(clusters), len(phoneme_ground_truth), wav_path = }"  
+                assert len(features) == len(phoneme_ground_truth), f"{len(features), len(phoneme_ground_truth), wav_path = }"  
                 pbar.update(1) 
 
         # Save the data 
-        speaker_data_path = osp.join("speakers_hubert_data", f"{speaker}_data.pkl") 
+        speaker_data_path = osp.join("speakers_hubert_features_personalized", f"{speaker}_data.pkl") 
         os.makedirs(osp.dirname(speaker_data_path), exist_ok=True) 
         with open(speaker_data_path, "wb") as f: 
-            pickle.dump(all_data, f) 
+            pickle.dump(all_data, f)
